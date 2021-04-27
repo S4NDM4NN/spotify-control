@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QShortcut,
     QVBoxLayout,
     QWidget,
+    QSlider,
 )
 
 
@@ -82,30 +83,66 @@ class MainWindow(QMainWindow):
         self.song_info = QLabel("song by artist")
         self.song_info.setAlignment(Qt.AlignCenter)
         
-        #clickable progress bar, for seeking track
-        pbar_style = """
-            QProgressBar{
-                background-color: LightSlateGrey;
-                border: 1px solid black;
-                border-radius: 5px;
-                text-align: center;
-                font-size: 1px;
-                color: Ivory;
+        #slider progress bar..
+        slide_style = """
+            QSlider::groove:horizontal {
+            border: 1px solid #bbb;
+            background: white;
+            height: 10px;
+            border-radius: 4px;
             }
-            QProgressBar::chunk {
-                background-color: DarkSlateGrey;
-                width: 1px;
-                margin: 0px;
+
+            QSlider::sub-page:horizontal {
+            background: LightSlateGrey;
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::add-page:horizontal {
+            background: #fff;
+            border: 1px solid #777;
+            height: 10px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #eee, stop:1 #ccc);
+            border: 1px solid #777;
+            width: 13px;
+            margin-top: -2px;
+            margin-bottom: -2px;
+            border-radius: 4px;
+            }
+
+            QSlider::handle:horizontal:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                stop:0 #fff, stop:1 #ddd);
+            border: 1px solid #444;
+            border-radius: 4px;
+            }
+
+            QSlider::sub-page:horizontal:disabled {
+            background: #bbb;
+            border-color: #999;
+            }
+
+            QSlider::add-page:horizontal:disabled {
+            background: #eee;
+            border-color: #999;
+            }
+
+            QSlider::handle:horizontal:disabled {
+            background: #eee;
+            border: 1px solid #aaa;
+            border-radius: 4px;
             }
         """
-
-        self.prog_bar = QProgressBar()
-        #we dont want any text in the progress bar
-        self.prog_bar.setFormat("")
-        #use css stylesheet for style
-        self.prog_bar.setStyleSheet(pbar_style)
-        #make the prog_bar clickable
-        self.prog_bar.mouseReleaseEvent = self.pbar_clicked
+        self.prog_slide = QSlider(Qt.Horizontal)
+        self.prog_slide.setStyleSheet(slide_style)
+        self.prog_slide.sliderReleased.connect(self.prog_slide_released)
+        self.prog_slide.mouseReleaseEvent = self.prog_slide_clicked
 
         #parent of all layouts
         self.main_widget = QWidget()
@@ -128,7 +165,7 @@ class MainWindow(QMainWindow):
 
         #add progress info to progress layout
         self.prog_layout.addWidget(self.song_prog_label)
-        self.prog_layout.addWidget(self.prog_bar)
+        self.prog_layout.addWidget(self.prog_slide)
         self.prog_layout.addWidget(self.song_len_label)  
         
         #build the verticle layout
@@ -140,6 +177,7 @@ class MainWindow(QMainWindow):
         self.v_layout.addLayout(self.con_layout)
         #progress info layout
         self.v_layout.addLayout(self.prog_layout)
+        #self.v_layout.addWidget(self.prog_bar)
         
         #add layout to make widget
         self.main_widget.setLayout(self.v_layout)
@@ -151,9 +189,9 @@ class MainWindow(QMainWindow):
         self.get_spot_status()
 
         #setup a timer to update the progress bar
-        self.refresh_pbar = QTimer()
-        self.refresh_pbar.timeout.connect(self.update_prog_info)
-        self.refresh_pbar.start(1000)
+        self.refres_pslide = QTimer()
+        self.refres_pslide.timeout.connect(self.update_prog_info)
+        self.refres_pslide.start(1000)
         
 
         # look at our settings to see if there is a setting called geometry saved.
@@ -178,20 +216,30 @@ class MainWindow(QMainWindow):
     def update_prog_info(self):
         if(self.play_status):
             self.song_progress += 1000
-            self.prog_bar.setMaximum(self.song_len)
-            self.prog_bar.setAlignment(Qt.AlignCenter)
-            self.prog_bar.setRange(0, self.song_len)
-            self.prog_bar.setValue(self.song_progress)
             self.song_prog_label.setText(self.convert_time(self.song_progress))
-            self.song_len_label.setText(self.convert_time(self.song_len))        
+            self.song_len_label.setText(self.convert_time(self.song_len))
+            self.prog_slide.setValue(self.song_progress)
+            self.prog_slide.setMaximum(self.song_len)
 
-    #progress bar was clicked
-    def pbar_clicked(self,clicked):
-        print("pbar clicked...")
+
+    def prog_slide_released(self):
+        print("prog_slider_released")
+
+        self.refresh_spot_token()
+        try:
+            self.spot.seek_track(self.prog_slide.value())
+        except Exception:
+            pass
+
+        self.song_progress = self.prog_slide.value()
+
+    #progress slider was clicked
+    def prog_slide_clicked(self,clicked):
+        print("pslide clicked...")
         
         self.refresh_spot_token()
         #calculate song percentage
-        percent = .01*int(100 / self.prog_bar.width() * clicked.x())
+        percent = .01*int(100 / self.prog_slide.width() * clicked.x())
         #use percentage to find where to seek to
         seek_to = int(int(self.song_len)*percent)
         #send seek to spotify
@@ -201,8 +249,8 @@ class MainWindow(QMainWindow):
             pass
 
         #visually move progress bar
-        self.prog_bar.setValue(seek_to)
-        self.song_progress = seek_to
+        self.prog_slide.setValue(seek_to)
+        self.song_progress = seek_to    
 
     #get spotify status - metadata etc
     def get_spot_status(self):
