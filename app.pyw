@@ -39,6 +39,20 @@ class MainWindow(QMainWindow):
         self.spot_scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing'
         self.spot_redirect_uri = "http://localhost:9090"
 
+
+        #init vars...
+        self.play_status = False
+        self.song_title = ""
+        self.song_album = ""
+        self.song_len = 0
+        self.song_progress = 0
+        self.artist_list = ""
+        self.alb_art_url = ""
+
+        image = QImage()
+        image.load('noart.jpg')
+        self.artfailed_pixmap = QPixmap(image)
+
         #Settings for spotify_control app
         self.settings = QtCore.QSettings("spotify_control", "spotify_control")
         #Set window title
@@ -256,17 +270,24 @@ class MainWindow(QMainWindow):
     def get_spot_status(self):
         self.refresh_spot_token()
         print("get_spot_status")
-        curr_playing = self.spot.currently_playing()
+        try:
+            curr_playing = self.spot.currently_playing()
+        except Exception:
+            pass
 
-        self.play_status = curr_playing['is_playing']
-        self.song_title = curr_playing['item']['name']
-        self.song_album = curr_playing['item']['album']['name']
-        self.song_len = curr_playing['item']['duration_ms']
-        self.song_progress = curr_playing['progress_ms']
-        self.artist_list = ', '.join([artist['name'] for artist in curr_playing['item']['artists']])
+        try:
+            self.play_status = curr_playing['is_playing']
+            self.song_title = curr_playing['item']['name']
+            self.song_album = curr_playing['item']['album']['name']
+            self.song_len = curr_playing['item']['duration_ms']
+            self.song_progress = curr_playing['progress_ms']
+            self.artist_list = ', '.join([artist['name'] for artist in curr_playing['item']['artists']])
+            self.alb_art_url = curr_playing['item']['album']['images'][0]['url']
+
+        except Exception:
+            pass
 
         self.song_info.setText(f"{self.song_title} by {self.artist_list}")
-        self.alb_art_url = curr_playing['item']['album']['images'][0]['url']
 
         #if the song is paused in the player itsself, update our gui
         if(self.play_status):
@@ -282,12 +303,17 @@ class MainWindow(QMainWindow):
         else:
             self.refresh_spot.start(int(self.song_len)-int(self.song_progress)+1000)
 
-        #update album art 
-        data = urllib.request.urlopen(self.alb_art_url).read()
-        image = QImage()
-        image.loadFromData(data)
-        self.pixmap = QPixmap(image)
-        self.alb_art.setPixmap(self.pixmap)
+        try:
+            #update album art 
+            data = urllib.request.urlopen(self.alb_art_url).read()
+            image = QImage()
+            image.loadFromData(data)
+            self.pixmap = QPixmap(image)
+            self.alb_art.setPixmap(self.pixmap)
+        except Exception:
+            self.alb_art.setPixmap(self.artfailed_pixmap)
+            pass
+
 
     #refresh spotify api access token
     def refresh_spot_token(self):
