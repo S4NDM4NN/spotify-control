@@ -110,17 +110,17 @@ class MainWindow(QMainWindow):
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                 stop:0 #eee, stop:1 #ccc);
             border: 1px solid #777;
-            width: 13px;
+            width: 5px;
             margin-top: -2px;
             margin-bottom: -2px;
-            border-radius: 4px;
+            border-radius: 2px;
             }
 
             QSlider::handle:horizontal:hover {
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                 stop:0 #fff, stop:1 #ddd);
             border: 1px solid #444;
-            border-radius: 4px;
+            border-radius: 2px;
             }
 
             QSlider::sub-page:horizontal:disabled {
